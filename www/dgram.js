@@ -39,6 +39,15 @@ Socket.prototype.send = function (buffer, destAddress, destPort, callback, encod
          [ this._socketId, buffer, destAddress, destPort, encoding ]);
 };
 
+Socket.prototype.sendHex = function (hexString, destAddress, destPort, callback) {
+    callback = callback || function () { };
+    exec(callback.bind(null, null), // success
+        callback.bind(null), // failure
+        'Dgram',
+        'sendHex',
+        [this._socketId, hexString, destAddress, destPort]);
+};
+
 Socket.prototype.address = function () {
 };
 
@@ -72,7 +81,15 @@ function onMessage(id, msg, remoteAddress, remotePort) {
     }
 }
 
+function onHexMessage(id, raw, remoteAddress, remotePort) {
+    var socket = Socket.sockets[id];
+    if (socket && 'hexMessage' in socket._eventHandlers) {
+        socket._eventHandlers['hexMessage'].call(null, raw, { address: remoteAddress, port: remotePort });
+    }
+}
+
 module.exports = {
     createSocket: createSocket,
-    _onMessage: onMessage
+    _onMessage: onMessage,
+    _onHexMessage: onHexMessage
 };

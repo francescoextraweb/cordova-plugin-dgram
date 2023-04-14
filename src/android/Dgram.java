@@ -22,6 +22,8 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
 
+import java.nio.charset.StandardCharsets;
+
 public class Dgram extends CordovaPlugin {
     private static final String TAG = Dgram.class.getSimpleName();
 
@@ -56,12 +58,14 @@ public class Dgram extends CordovaPlugin {
                 try {
                     packet.setLength(data.length); // reset packet length due to incomplete UDP Packet received
                     this.m_socket.receive(packet);
+
+                    String address = packet.getAddress().getHostAddress();
+                    int port = packet.getPort();
+
                     String msg = new String(data, 0, packet.getLength(), "UTF-8")
                             .replace("'", "\'")
                             .replace("\r", "\\r")
                             .replace("\n", "\\n");
-                    String address = packet.getAddress().getHostAddress();
-                    int port = packet.getPort();
 
                     Dgram.this.webView.sendJavascript(
                             "cordova.require('cordova-plugin-dgram.dgram')._onMessage("
@@ -69,6 +73,18 @@ public class Dgram extends CordovaPlugin {
                                     + "'" + msg + "',"
                                     + "'" + address + "',"
                                     + port + ")");
+
+                    byte[] resizedData = new byte[packet.getLength()];
+                    System.arraycopy(data, 0, resizedData, 0, packet.getLength());
+
+                    String hexString = convertBytesToHexString(resizedData);
+                    Dgram.this.webView.sendJavascript(
+                            "cordova.require('cordova-plugin-dgram.dgram')._onHexMessage("
+                                    + this.m_socketId + ","
+                                    + "'" + hexString + "',"
+                                    + "'" + address + "',"
+                                    + port + ")");
+
                 } catch (Exception e) {
                     Log.d(TAG, "Receive exception:" + e.toString());
                     return;
@@ -77,15 +93,37 @@ public class Dgram extends CordovaPlugin {
         }
     }
 
+    public static String convertBytesToHexString(byte[] input) {
+        byte[] hex_array = "0123456789ABCDEF".getBytes(StandardCharsets.US_ASCII);
+        byte[] hexChars = new byte[input.length * 2];
+        for (int j = 0; j < input.length; j++) {
+            int v = input[j] & 0xFF;
+            hexChars[j * 2] = hex_array[v >>> 4];
+            hexChars[j * 2 + 1] = hex_array[v & 0x0F];
+        }
+        return new String(hexChars, StandardCharsets.UTF_8);
+    }
+
+    public static byte[] convertHexStringToBytes(String input) {
+        int len = input.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(input.charAt(i), 16) << 4)
+                    + Character.digit(input.charAt(i + 1), 16));
+        }
+        return data;
+    }
+
     public NetworkInterface getActiveWifiInterface() throws SocketException {
         NetworkInterface activeInterface = null;
-        for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();){
+        for (Enumeration<NetworkInterface> en = NetworkInterface.getNetworkInterfaces(); en.hasMoreElements();) {
             NetworkInterface intf = en.nextElement();
-            if (intf.isUp() && intf.supportsMulticast() && intf.getInterfaceAddresses().size() > 0 && !intf.isLoopback() && !intf.isVirtual() && !intf.isPointToPoint()){
-                if (activeInterface == null){
+            if (intf.isUp() && intf.supportsMulticast() && intf.getInterfaceAddresses().size() > 0 && !intf.isLoopback()
+                    && !intf.isVirtual() && !intf.isPointToPoint()) {
+                if (activeInterface == null) {
                     activeInterface = intf;
-                }else{
-                    if (!activeInterface.getName().contains("wlan") && !activeInterface.getName().contains("ap")){
+                } else {
+                    if (!activeInterface.getName().contains("wlan") && !activeInterface.getName().contains("ap")) {
                         activeInterface = intf;
                     }
                 }
@@ -104,7 +142,7 @@ public class Dgram extends CordovaPlugin {
 
         // get stacktace
         StringWriter writer = new StringWriter();
-        PrintWriter printWriter = new PrintWriter( writer );
+        PrintWriter printWriter = new PrintWriter(writer);
         e.printStackTrace(printWriter);
         printWriter.flush();
 
@@ -174,7 +212,7 @@ public class Dgram extends CordovaPlugin {
             try {
                 MulticastSocket msocket = (MulticastSocket) socket;
                 msocket.joinGroup(new InetSocketAddress(address, config.port), config.networkInterface);
-//                msocket.joinGroup(InetAddress.getByName(address));
+                // msocket.joinGroup(InetAddress.getByName(address));
                 callbackContext.success();
             } catch (Exception e) {
                 Log.e(TAG, "joinGroup exception:" + e.toString(), e);
@@ -189,7 +227,7 @@ public class Dgram extends CordovaPlugin {
             try {
                 MulticastSocket msocket = (MulticastSocket) socket;
                 msocket.leaveGroup(new InetSocketAddress(address, config.port), config.networkInterface);
-//                msocket.leaveGroup(InetAddress.getByName(address));
+                // msocket.leaveGroup(InetAddress.getByName(address));
                 callbackContext.success();
             } catch (Exception e) {
                 Log.e(TAG, "leaveGroup exception:" + e.toString(), e);
@@ -216,8 +254,9 @@ public class Dgram extends CordovaPlugin {
                         else if (encoding.equals("base64"))
                             bytes = Base64.decode(message, Base64.DEFAULT);
                         else
-                            bytes = new byte[] {0};
-                        DatagramPacket packet = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(address), port);
+                            bytes = new byte[] { 0 };
+                        DatagramPacket packet = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(address),
+                                port);
                         localSocket.send(packet);
                         callbackContext.success(message);
                     } catch (IOException ioe) {
@@ -229,10 +268,40 @@ public class Dgram extends CordovaPlugin {
                     }
                 }
             });
+        } else if (action.equals("sendHex")) {
+            if (socket == null) {
+                callbackContext.error("No Socket available!");
+                return true;
+            }
+            final String hexString = data.getString(1);
+            final String address = data.getString(2);
+            final int port = data.getInt(3);
+            final DatagramSocket localSocket = socket;
+
+            // threadded send to prevent NetworkOnMainThreadException
+            cordova.getThreadPool().execute(new Runnable() {
+                public void run() {
+                    try {
+                        byte[] bytes = convertHexStringToBytes(hexString);
+                        DatagramPacket packet = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(address),
+                                port);
+                        localSocket.send(packet);
+                        callbackContext.success(hexString);
+                    } catch (IOException ioe) {
+                        Log.d(TAG, "send exception:" + ioe.toString(), ioe);
+                        callbackContext.error(getErrorFromException(ioe));
+                    } catch (IllegalArgumentException iae) {
+                        Log.d(TAG, "send exception:" + iae.toString(), iae);
+                        callbackContext.error(getErrorFromException(iae));
+                    }
+                }
+            });
+
         } else if (action.equals("close")) {
             if (socket != null) {
                 socket.close();
                 m_sockets.remove(id);
+
                 SocketListener listener = m_listeners.get(id);
                 if (listener != null) {
                     listener.interrupt();
