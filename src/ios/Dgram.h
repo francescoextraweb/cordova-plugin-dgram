@@ -1,6 +1,6 @@
 #import <Cordova/CDV.h>
 #import "GCDAsyncUdpSocket.h"
-#import "NSData+Conversion.h"
+#import "NSDataConversion.h"
 
 
 @interface Dgram : CDVPlugin<GCDAsyncUdpSocketDelegate>

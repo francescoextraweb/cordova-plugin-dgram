@@ -1,4 +1,4 @@
-#import "NSData+Conversion.h"
+#import "NSDataConversion.h"
 
 @implementation NSData (NSData_Conversion)
 
