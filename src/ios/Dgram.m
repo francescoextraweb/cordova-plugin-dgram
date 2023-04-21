@@ -166,6 +166,27 @@
     [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
 }
 
+-(void)sendHex:(CDVInvokedUrlCommand *)command {
+    NSInteger socketID = [[command argumentAtIndex:0] intValue];
+    NSString *buffer = [command argumentAtIndex:1];
+    NSString *remoteAddress = [command argumentAtIndex:2];
+    NSInteger remotePort = [[command argumentAtIndex:3] intValue];
+    SocketConfig *config = [sockets valueForKey:[SocketConfig convertIDTokKey:socketID]];
+    CDVPluginResult *result = nil;
+
+    NSData *data = [buffer hexStringToData];
+    if (config == nil || config.socketHandle == nil) {
+        result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Socket is not open"];
+    }
+    else {
+        [config.socketHandle sendData:data toHost:remoteAddress port:remotePort withTimeout:60 tag:self.tag];
+        self.tag++;
+        result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:buffer];
+    }
+
+    [self.commandDelegate sendPluginResult:result callbackId:command.callbackId];
+}
+
 #pragma mark GCDAsyncUdpSocketDelegate methods
 
 - (void)udpSocket:(GCDAsyncUdpSocket *)sock didSendDataWithTag:(long)tag
@@ -199,6 +220,15 @@
         msg = [msg stringByReplacingOccurrencesOfString:@"\n" withString:@"\\n"];
         msg = [msg stringByReplacingOccurrencesOfString:@"\r" withString:@"\\r"];
         NSString *command = [NSString stringWithFormat:@"cordova.require('cordova-plugin-dgram.dgram')._onMessage(%d,'%@','%@',%d)", (int)config.socketID, msg, host, port];
+        [self.commandDelegate evalJs:command scheduledOnRunLoop:YES];
+    }
+    else {
+        NSLog(@"Failed to get message from host: %@", host);
+    }
+
+    NSString *hexMsg = [data dataToHexString];
+    if (hexMsg != nil && config != nil) {
+        NSString *command = [NSString stringWithFormat:@"cordova.require('cordova-plugin-dgram.dgram')._onHexMessage(%d,'%@','%@',%d)", (int)config.socketID, hexMsg, host, port];
         [self.commandDelegate evalJs:command scheduledOnRunLoop:YES];
     }
     else {
