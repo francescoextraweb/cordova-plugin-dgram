@@ -174,7 +174,8 @@
     SocketConfig *config = [sockets valueForKey:[SocketConfig convertIDTokKey:socketID]];
     CDVPluginResult *result = nil;
 
-    NSData *data = [buffer hexStringToData];
+    NSDataConversion *dataConv = [[NSDataConversion alloc]init];
+    NSData *data = [dataConv hexStringToData:buffer];
     if (config == nil || config.socketHandle == nil) {
         result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Socket is not open"];
     }
@@ -225,8 +226,9 @@
     else {
         NSLog(@"Failed to get message from host: %@", host);
     }
-
-    NSString *hexMsg = [data dataToHexString];
+    
+    NSDataConversion *dataConv = [[NSDataConversion alloc]init];
+    NSString *hexMsg = [dataConv dataToHexString:data];
     if (hexMsg != nil && config != nil) {
         NSString *command = [NSString stringWithFormat:@"cordova.require('cordova-plugin-dgram.dgram')._onHexMessage(%d,'%@','%@',%d)", (int)config.socketID, hexMsg, host, port];
         [self.commandDelegate evalJs:command scheduledOnRunLoop:YES];

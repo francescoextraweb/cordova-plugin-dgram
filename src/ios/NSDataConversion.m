@@ -1,12 +1,12 @@
 #import "NSDataConversion.h"
 
-@implementation NSData (NSData_Conversion)
+@implementation NSDataConversion
 
 #pragma mark - Bytes Conversion
-- (NSString *)dataToHexString {
-    NSUInteger length = self.length;
+- (NSString *)dataToHexString: (NSData *)data {
+    NSUInteger length = data.length;
     unichar* hexChars = (unichar*)malloc(sizeof(unichar) * (length*2));
-    unsigned char* bytes = (unsigned char*)self.bytes;
+    unsigned char* bytes = (unsigned char*)data.bytes;
     for (NSUInteger i = 0; i < length; i++) {
         unichar c = bytes[i] / 16;
         if (c < 10) {
@@ -29,8 +29,8 @@
 }
 
 #pragma mark - String Conversion
-- (NSData *)hexStringToData {
-    NSString *string = [self lowercaseString];
+- (NSData *)hexStringToData: (NSString *)string {
+    string = [string lowercaseString];
     NSMutableData *data= [NSMutableData new];
     unsigned char whole_byte;
     char byte_chars[3] = {'\0','\0','\0'};
