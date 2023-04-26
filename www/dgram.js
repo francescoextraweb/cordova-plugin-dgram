@@ -78,6 +78,7 @@ function onMessage(id, msg, remoteAddress, remotePort) {
     var socket = Socket.sockets[id];
     if (socket && 'message' in socket._eventHandlers) {
         socket._eventHandlers['message'].call(null, msg, { address: remoteAddress, port: remotePort });
+        console.log('TRACE message '+raw)
     }
 }
 
@@ -85,6 +86,7 @@ function onHexMessage(id, raw, remoteAddress, remotePort) {
     var socket = Socket.sockets[id];
     if (socket && 'hexMessage' in socket._eventHandlers) {
         socket._eventHandlers['hexMessage'].call(null, raw, { address: remoteAddress, port: remotePort });
+        console.log('TRACE hexMessage '+raw)
     }
 }
 

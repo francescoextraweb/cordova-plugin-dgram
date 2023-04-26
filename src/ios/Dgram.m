@@ -75,7 +75,7 @@
     else if ([config.socketHandle bindToPort:config.port error:&error]) {
         config.isBound = YES;
         if ((!config.isMulticast && [config.socketHandle beginReceiving:&error]) || config.isMulticast) {
-            result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+            result = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString:@"OK"];
         }
         else if(!config.isMulticast) {
             result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:[NSString stringWithFormat:@"Cannot listen to socket - %@", error.localizedDescription]];
@@ -222,9 +222,10 @@
         msg = [msg stringByReplacingOccurrencesOfString:@"\r" withString:@"\\r"];
         NSString *command = [NSString stringWithFormat:@"cordova.require('cordova-plugin-dgram.dgram')._onMessage(%d,'%@','%@',%d)", (int)config.socketID, msg, host, port];
         [self.commandDelegate evalJs:command scheduledOnRunLoop:YES];
+        // NSLog(@"msg: sent: %@", msg);
     }
     else {
-        NSLog(@"Failed to get message from host: %@", host);
+        NSLog(@"msg: Failed to get message from host: %@", host);
     }
     
     NSDataConversion *dataConv = [[NSDataConversion alloc]init];
@@ -232,9 +233,10 @@
     if (hexMsg != nil && config != nil) {
         NSString *command = [NSString stringWithFormat:@"cordova.require('cordova-plugin-dgram.dgram')._onHexMessage(%d,'%@','%@',%d)", (int)config.socketID, hexMsg, host, port];
         [self.commandDelegate evalJs:command scheduledOnRunLoop:YES];
+        // NSLog(@"hexMsg: sent: %@", hexMsg);
     }
     else {
-        NSLog(@"Failed to get message from host: %@", host);
+        NSLog(@"hexMsg: Failed to get message from host: %@", host);
     }
 }
 
