@@ -24,6 +24,8 @@ import java.util.Enumeration;
 
 import java.nio.charset.StandardCharsets;
 
+import wifiwizard2.WifiWizard2;
+
 public class Dgram extends CordovaPlugin {
     private static final String TAG = Dgram.class.getSimpleName();
 
@@ -35,6 +37,7 @@ public class Dgram extends CordovaPlugin {
         m_sockets = new SparseArray<DatagramSocket>();
         m_listeners = new SparseArray<SocketListener>();
         m_config = new SparseArray<SocketConfig>();
+        
     }
 
     private class SocketConfig {
@@ -130,8 +133,10 @@ public class Dgram extends CordovaPlugin {
             }
         }
         if (activeInterface != null) {
+            webView.sendJavascript("javascript:console.log('Using Network Interface: " + activeInterface.getName()+"');");
             Log.d(TAG, "Using Network Interface: " + activeInterface.getName());
         } else {
+            webView.sendJavascript("javascript:console.log('No active Network Interface found !');");
             Log.d(TAG, "No active Network Interface found !");
         }
         return activeInterface;
@@ -181,6 +186,7 @@ public class Dgram extends CordovaPlugin {
                     socket = new DatagramSocket(null);
                     socket.setBroadcast(isBroadcast);
                 }
+
                 m_config.put(id, config);
                 m_sockets.put(id, socket);
                 callbackContext.success();
@@ -194,7 +200,24 @@ public class Dgram extends CordovaPlugin {
                 return true;
             }
             try {
-                socket.bind(new InetSocketAddress(config.port));
+
+                if( WifiWizard2.specifiedNetwork != null ) {
+                    WifiWizard2.specifiedNetwork.bindSocket(socket);
+                    Dgram.this.webView.sendJavascript("console.log('WifiWizard2.specifiedNetwork set "+WifiWizard2.specifiedNetwork.toString()+"');");
+                }
+
+                socket.bind(new InetSocketAddress("0.0.0.0", config.port));
+
+                // socket.bind(new InetSocketAddress(config.port));
+
+                // if( WifiWizard2.specifiedNetwork != null ) {
+                //     socket.bind(new InetSocketAddress("10.0.2.16", config.port));
+                //     Dgram.this.webView.sendJavascript("console.log('WifiWizard2.specifiedNetwork set "+WifiWizard2.specifiedNetwork.toString()+"');");
+                // } else {
+                //     socket.bind(new InetSocketAddress(config.port));
+                //     callbackContext.error("WifiWizard2.specifiedNetwork not set");
+                // }
+
                 SocketListener listener = new SocketListener(id, socket);
                 m_listeners.put(id, listener);
                 listener.start();
