@@ -3,6 +3,9 @@ package org.apache.cordova.dgram;
 import android.util.Log;
 import android.util.SparseArray;
 import android.util.Base64;
+import android.net.wifi.WifiManager;
+import android.content.Context;
+
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
@@ -202,6 +205,12 @@ public class Dgram extends CordovaPlugin {
             try {
 
                 if( WifiWizard2.specifiedNetwork != null ) {
+                    // Per ottenere l'uso della rete multicast ed evitare il filtraggio dei pacchetti udp broadcast
+                    WifiManager wifiManager = (WifiManager) cordova.getActivity().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+                    WifiManager.MulticastLock lock = wifiManager.createMulticastLock("udp");
+                    lock.setReferenceCounted(true);
+                    lock.acquire(); 
+
                     WifiWizard2.specifiedNetwork.bindSocket(socket);
                     Dgram.this.webView.sendJavascript("console.log('WifiWizard2.specifiedNetwork set "+WifiWizard2.specifiedNetwork.toString()+"');");
                 }
